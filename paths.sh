@@ -7,6 +7,12 @@ then
 	exit 1
 fi
 
+if ! exiftool -ver &>/dev/null
+then
+	echo "Do funkcjonowania programu wymagane jest narzędzie exiftool"
+	exit 1
+fi
+
 DIR=$1
 OUT=$2
 MAX_TIME=3600 #godzina w sekundach
@@ -29,7 +35,6 @@ do
 	if [[ ! $TMP =~ '-|-' ]]
 	then
 		((PHOTOS++))
-		FILE_NAMES+=($file)
 		echo $TMP >> $TMP_FILE
 	fi
 done
@@ -38,6 +43,7 @@ LAST=0
 TRK_OUT="<trk><trkseg>"
 RTE_OUT="<rte>"
 INDEX=0
+PATH_LENGTH=0
 for photo in $(cat $TMP_FILE | sort)
 do
 	#petla tworząca plik gpx
@@ -46,12 +52,17 @@ do
 	DATE_UNIX=$(date -d $DATE +%s)
 	LAT=$(echo $photo | cut -d '|' -f 2)
 	LON=$(echo $photo | cut -d '|' -f 3)
-
+	((PATH_LENGTH++))
+	
 
 	#jesli czas pomiedzy poprzednim a obecnym zdjeciem wynosi godzine(moze byc wiecej lub mniej trzeba zmienic zmienna $MAX_TIME)
 	if [[ $(($DATE_UNIX - $LAST)) -gt $MAX_TIME && $LAST -ne 0 ]]
 	then
-		((PATHS++))
+		if [[ $PATH_LENGTH -ge 2 ]]
+		then
+			((PATHS++))
+		fi
+		PATH_LENGTH=0
 		TRK_OUT+="</trkseg></trk><trk><trkseg>"
 		RTE_OUT+="</rte><rte>"
 	fi
@@ -66,8 +77,6 @@ TRK_OUT+="</trkseg></trk>"
 RTE_OUT+="</rte>"
 if [[ ! $PHOTOS -eq 0 ]]
 then
-	#tutaj dodajemy 1 do pathow bo jezeli zaczalbym indeksowac od 1 to by pokazywalo ze 1 path zostal znaleziony nawet gdy bylo ich 0
-	((PATHS++))
 	{
 		echo "<gpx version='1.1'>"
 		echo $TRK_OUT
